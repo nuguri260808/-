@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>수행평가 관리</title>
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#e0f2fe">
+
+  <style>
+    :root {
+      --bg: #f0f9ff;
+      --card: #ffffff;
+      --primary: #0284c7;
+      --primary-light: #e0f2fe;
+      --text: #0f172a;
+      --subtext: #64748b;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    
+    body { 
+      background-color: var(--bg); 
+      color: var(--text); 
+      padding-bottom: calc(80px + env(safe-area-inset-bottom)); 
+      max-width: 480px; 
+      margin: 0 auto; 
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    
+    header { 
+      background: var(--card); 
+      padding: 16px; 
+      text-align: center; 
+      font-weight: bold; 
+      font-size: 1.1rem; 
+      border-bottom: 1px solid var(--border); 
+      position: sticky; 
+      top: 0; 
+      z-index: 10; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    
+    nav { 
+      position: fixed; 
+      bottom: 0; 
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%; 
+      max-width: 480px; 
+      background: var(--card); 
+      display: flex; 
+      border-top: 1px solid var(--border); 
+      z-index: 99999 !important; 
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    nav button { flex: 1; padding: 12px 4px; border: none; background: none; font-size: 0.8rem; color: var(--subtext); cursor: pointer; }
+    nav button.active { color: var(--primary); font-weight: bold; }
+
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    .card { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
+    .btn-secondary { background: var(--primary-light); color: var(--primary); }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-sm { width: auto; padding: 6px 10px; font-size: 0.78rem; margin: 0; }
+    
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; margin-bottom: 10px; font-size: 0.88rem; }
+    label { font-size: 0.82rem; color: var(--subtext); font-weight: bold; }
+
+    .filter-group { display: flex; gap: 8px; margin-bottom: 16px; }
+    .filter-btn { flex: 1; padding: 10px; border: 1px solid var(--border); background: var(--card); border-radius: 20px; font-size: 0.85rem; cursor: pointer; }
+    .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: bold; }
+
+    .badge { display: inline-block; padding: 3px 7px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; background: var(--primary-light); color: var(--primary); margin-right: 4px; }
+    .badge-common { background: #e0e7ff; color: #4338ca; }
+
+    .item-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding: 10px 0; }
+    .item-row:last-child { border-bottom: none; }
+
+    .timetable-grid { display: grid; grid-template-columns: 36px repeat(5, 1fr); gap: 4px; text-align: center; font-size: 0.75rem; }
+    .tt-header { font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 8px 2px; border-radius: 6px; }
+    .tt-cell { background: #f8fafc; border: 1px solid var(--border); padding: 8px 2px; border-radius: 6px; min-height: 48px; display: flex; align-items: center; justify-content: center; word-break: keep-all; line-height: 1.2; }
+    .tt-cell.editable { cursor: pointer; border: 1px dashed var(--primary); background: #f0f9ff; }
+    .tt-period { font-weight: bold; color: var(--subtext); background: #f1f5f9; }
+
+    .terms-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 12px; max-height: 160px; overflow-y: auto; font-size: 0.78rem; color: var(--subtext); line-height: 1.5; margin-top: 6px; }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // ⚠️ Firebase 정보를 여기에 입력하세요.
+    const firebaseConfig = {
+      apiKey: "AIzaSyBNSF0jYs3TeiwgPKCWZ0irFfPtWD8fScs",
+      authDomain: "class209.firebaseapp.com",
+      databaseURL: "https://class209-default-rtdb.firebaseio.com",
+      projectId: "class209",
+      storageBucket: "class209.firebasestorage.app",
+      messagingSenderId: "584432141678",
+      appId: "1:584432141678:web:bda51797fc8da12df4ed7f",
+      measurementId: "G-TMNCF0TM8T"
+    }
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.db = db;
+    window.dbRef = ref;
+    window.dbSet = set;
+    window.dbPush = push;
+    window.dbOnValue = onValue;
+    window.dbRemove = remove;
+  </script>
+</head>
+<body>
+
+  <header>
+    <span>수행평가 관리</span>
+    <span id="user-badge" style="font-size:0.8rem; color:var(--primary);"></span>
+  </header>
+
+  <!-- 초기 설정 / 로그인 / 회원가입 페이지 -->
+  <div id="page-onboarding" class="page active">
+    <div class="card">
+      <h2 style="margin-bottom:12px;">수행평가 관리 👋</h2>
+      
+      <div class="filter-group" style="margin-bottom:16px;">
+        <button class="filter-btn active" id="btn-tab-signup" onclick="toggleAuthTab('signup')">회원가입</button>
+        <button class="filter-btn" id="btn-tab-login" onclick="toggleAuthTab('login')">로그인</button>
+      </div>
+
+      <!-- 1. 회원가입 폼 -->
+      <div id="form-signup">
+        <p style="color:var(--subtext); font-size:0.85rem; margin-bottom:12px;">학번, 이름 및 반과 과목 분반을 설정해주세요.</p>
+        
+        <label>가입 보안 코드</label>
+        <input type="password" id="init-code" placeholder="보안 코드를 입력하세요">
+
+        <label>반 선택</label>
+        <select id="init-class"></select>
+
+        <label>학번 (5자리)</label>
+        <input type="number" id="init-id" placeholder="예: 20901">
+
+        <label>이름 (실명)</label>
+        <input type="text" id="init-name" placeholder="홍길동">
+
+        <label>비밀번호</label>
+        <input type="password" id="init-password" placeholder="로그인에 사용할 비밀번호">
+
+        <h4 style="margin: 16px 0 8px 0;">📚 선택과목 분반 설정</h4>
+        <div id="block-selects">데이터 로딩 중...</div>
+
+        <h4 style="margin: 16px 0 6px 0;">📜 서비스 이용약관 및 면책 동의 (필수)</h4>
+        <div class="terms-box">
+          <p style="margin-bottom:8px;"><strong>[제1조] 목적 및 서비스의 성격</strong><br>본 서비스는 학생 간 수행평가 및 일정 정보 공유, 효율적인 학급 관리를 조력하기 위해 자율적으로 운영되는 편의 플랫폼입니다. 본 서비스는 학교 및 담당 교사의 공식 공지가 아니며, 참조용 보조 도구로만 활용되어야 합니다.</p>
+          
+          <p style="margin-bottom:8px;"><strong>[제2조] 면책 조항 및 책임의 한계</strong><br>① 게시된 모든 수행평가 일정, 과목명, 마감일, 교시, 제출 서식 및 준비물 등의 내용은 사용자가 직접 작성 및 등록한 정보로 실제 학교 공지사항과 다를 수 있습니다.<br>② 일정 누락, 잘못된 마감일 등록, 내용 오기, 서비스 장애, 서버 오류, 데이터 손실 등으로 인해 발생한 **학생 개인의 학습상 불이익, 수행평가 미제출, 감점, 성적 불이익 등 어떠한 결과에 대해서도 서비스 제공자(관리자)는 법적·행정적·도덕적 책임을 지지 않습니다.**<br>③ 모든 최종 수행평가 일정 및 제출 기준은 반드시 담당 과목 교사의 설명 및 학교 공식 공지사항을 통해 사용자가 직접 재확인해야 합니다.</p>
+          
+          <p style="margin-bottom:8px;"><strong>[제3조] 게시물 작성 및 이용자 준수사항</strong><br>① 사용자는 허위 정보, 장난성/기만성 일정, 타인에게 혼란을 주는 내용, 욕설, 비방, 불쾌한 언어 표현, 광고성 콘텐츠 등을 절대 게시해서는 안 됩니다.<br>② 타인의 학번이나 이름을 도용하여 가입하거나 활동하는 행위를 엄격히 금지합니다.<br>③ 시스템의 정상적인 운영을 방해하는 행위(도배, 악성 코드 등록, 시스템 무단 수정 등)를 금지합니다.</p>
+          
+          <p style="margin-bottom:8px;"><strong>[제4조] 관리자의 권한 및 계정 조치</strong><br>① 관리자는 허위이거나 부적절하다고 판단되는 게시글을 사전 통보 없이 즉시 수정 또는 삭제할 수 있습니다.<br>② 이용 약관을 위반하거나 무분별한 오류/장난글 작성으로 서비스 운용을 방해하는 사용자에 대해 **경고 조치, 일정 등록 권한 박탈, 계정 즉시 강퇴 및 접속 차단**을 시행할 수 있습니다.</p>
+          
+          <p style="margin-bottom:8px;"><strong>[제5조] 개인정보 및 데이터 관리</strong><br>① 서비스 이용을 위해 수집되는 학번, 이름, 반 및 선택 과목 정보는 서비스 내 본인 확인 및 맞춤형 시간표/일정 제공 목적으로만 사용됩니다.<br>② 이용 편의 및 자동 로그인 지원을 위해 웹 브라우저의 로컬 저장소(localStorage)를 사용합니다.</p>
+          
+          <p><strong>[제6조] 약관 동의의 효력</strong><br>회원가입 및 등록 버튼을 누르고 본 서비스를 이용하는 것은 상기 모든 약관 및 면책 조항을 충분히 숙지하였으며, 이에 최종 동의한 것으로 간주합니다.</p>
+        </div>
+
+        <label style="display:flex; align-items:center; gap:8px; margin: 12px 0; cursor:pointer; font-size:0.85rem;">
+          <input type="checkbox" id="init-agree" style="width:18px; height:18px; margin:0;">
+          <span>상기 이용약관 및 면책 조항에 동의합니다 (필수)</span>
+        </label>
+
+        <button class="btn" onclick="saveProfile()">등록 완료하고 시작하기</button>
+      </div>
+
+      <!-- 2. 재로그인 폼 -->
+      <div id="form-login" style="display:none;">
+        <p style="color:var(--subtext); font-size:0.85rem; margin-bottom:12px;">등록하신 학번, 이름, 비밀번호로 로그인하세요.</p>
+        
+        <label>학번 (5자리)</label>
+        <input type="number" id="login-id" placeholder="예: 20901">
+
+        <label>이름</label>
+        <input type="text" id="login-name" placeholder="홍길동">
+
+        <label>비밀번호</label>
+        <input type="password" id="login-password" placeholder="비밀번호 입력">
+
+        <button class="btn" onclick="loginUser()">로그인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. 일정 탭 -->
+  <div id="page-calendar" class="page">
+    <div class="filter-group">
+      <button class="filter-btn active" id="btn-filter-all" onclick="setFilter('all')">🌐 전체 일정 보기</button>
+      <button class="filter-btn" id="btn-filter-my" onclick="setFilter('my')">🎯 내 맞춤 일정만</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3>수행평가 & 공유 일정</h3>
+      </div>
+      <div id="schedule-list">불러오는 중...</div>
+      <button class="btn btn-secondary" onclick="openModal('modal-schedule')" style="margin-top:12px;">+ 새 일정 등록하기</button>
+    </div>
+  </div>
+
+  <!-- 2. 시간표 탭 -->
+  <div id="page-timetable" class="page">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 id="timetable-title">⏰ 맞춤 학급 시간표</h3>
+        <span id="admin-tt-notice" style="font-size:0.75rem; color:var(--primary); font-weight:bold; display:none;">✏️ 셀 터치 시 수정 가능</span>
+      </div>
+      <p style="font-size:0.8rem; color:var(--subtext); margin-bottom:12px;">분반 위치에 내가 설정한 선택과목이 자동 반영됩니다.</p>
+      <div class="timetable-grid" id="timetable-display"></div>
+    </div>
+  </div>
+
+  <!-- 3. 관리자 및 설정 탭 -->
+  <div id="page-admin" class="page">
+    <div class="card">
+      <h3>👤 내 프로필 정보</h3>
+      <p id="profile-display-info" style="margin:12px 0; font-size:0.88rem; color:var(--subtext);"></p>
+      <button class="btn btn-secondary" onclick="logoutApp()">로그아웃 (프로필 재설정)</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3>🛡️ 관리자(Admin) 모드</h3>
+        <input type="checkbox" id="admin-toggle" onchange="toggleAdmin(this)" style="width:20px; height:20px; margin:0;">
+      </div>
+
+      <div id="admin-controls" style="display:none; border-top:1px solid var(--border); padding-top:12px; margin-top:8px;">
+        <!-- 1. 접수된 오류 신고 관리 -->
+        <h4 style="margin-bottom:8px;">🚨 접수된 오류 신고 목록</h4>
+        <div id="report-list" style="background:#f8fafc; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:16px;">불러오는 중...</div>
+
+        <!-- 2. 비밀번호 실시간 변경 -->
+        <h4 style="margin: 16px 0 8px 0;">🔑 비밀번호 관리</h4>
+        <label>가입 보안 코드 변경</label>
+        <input type="text" id="new-signup-code" placeholder="새 가입 코드">
+        <button class="btn btn-secondary" onclick="changeSignupCode()" style="margin-bottom:12px;">가입 코드 변경</button>
+
+        <label>관리자 비밀번호 변경</label>
+        <input type="password" id="new-admin-pass" placeholder="새 관리자 비밀번호">
+        <button class="btn btn-secondary" onclick="changeAdminPassword()" style="margin-bottom:16px;">관리자 비번 변경</button>
+
+        <!-- 3. 반 추가/삭제 및 시간표 관리 -->
+        <h4 style="margin: 16px 0 8px 0;">🏫 반 추가/삭제 및 반별 시간표 관리</h4>
+        <label>새 학급(반) 추가</label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="new-class-name" placeholder="예: 11반" style="margin:0;">
+          <button class="btn btn-sm" onclick="addClass()" style="white-space:nowrap;">반 추가</button>
+        </div>
+
+        <h5 style="margin: 10px 0 6px 0; color: var(--subtext);">현재 등록된 반 목록 (클릭시 삭제)</h5>
+        <div id="class-manage-list" style="background:#f8fafc; padding:10px; border-radius:10px; border:1px solid var(--border); margin-bottom:12px;"></div>
+
+        <label style="margin-top:12px; display:block;">관리할 반 시간표 선택</label>
+        <select id="admin-class-select" onchange="switchAdminClassTimetable()"></select>
+        <p style="font-size:0.75rem; color:var(--primary); margin-bottom:8px;">위에서 선택된 반의 시간표를 [시간표 탭]에서 직접 클릭해 편집합니다.</p>
+
+        <!-- 4. 학생 명단 및 강퇴/경고 -->
+        <h4 style="margin: 16px 0 8px 0;">👥 학생 명단 및 강퇴/경고</h4>
+        <div id="student-list" style="margin-bottom:16px;">불러오는 중...</div>
+
+        <!-- 5. 선택과목 추가 및 삭제 관리 -->
+        <h4 style="margin: 16px 0 8px 0;">📚 선택 과목 실시간 추가 및 삭제</h4>
+        <label>분반 선택</label>
+        <select id="add-subject-block">
+          <option value="Common">공통 과목</option>
+          <option value="J">J 분반</option><option value="I">I 분반</option>
+          <option value="F">F 분반</option><option value="H">H 분반</option><option value="G">G 분반</option>
+        </select>
+        <label>과목명 입력</label>
+        <input type="text" id="add-subject-name" placeholder="예: 물리학2">
+        <button class="btn" onclick="addNewSubject()">과목 추가 등록</button>
+
+        <h5 style="margin: 14px 0 6px 0; color: var(--subtext);">현재 등록된 과목 목록 (클릭하여 삭제)</h5>
+        <div id="subject-manage-list" style="background:#f8fafc; padding:10px; border-radius:10px; border:1px solid var(--border);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단 네비게이션 -->
+  <nav id="bottom-nav" style="display:none;">
+    <button class="active" onclick="switchPage('calendar', this)">일정</button>
+    <button onclick="switchPage('timetable', this)">시간표</button>
+    <button onclick="switchPage('admin', this)">⚙️ 관리</button>
+  </nav>
+
+  <!-- 일정 등록 모달 -->
+  <div id="modal-schedule" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:200; padding:20px;">
+    <div class="card" style="max-height:90vh; overflow-y:auto; margin-top:20px;">
+      <h3>새 일정 공유하기</h3>
+      <label>구분</label>
+      <select id="sch-type" onchange="updateFormSubjects()">
+        <option value="Common">공통 과목</option>
+        <option value="Elective">선택 과목 (분반)</option>
+      </select>
+
+      <div id="common-class-field">
+        <label>대상 반 선택 (공통 과목)</label>
+        <select id="sch-target-class"></select>
+      </div>
+
+      <div id="block-field" style="display:none;">
+        <label>분반 선택</label>
+        <select id="sch-block" onchange="updateFormSubjects()">
+          <option value="J">J 분반</option><option value="I">I 분반</option>
+          <option value="F">F 분반</option><option value="H">H 분반</option><option value="G">G 분반</option>
+        </select>
+      </div>
+
+      <label>과목명</label>
+      <select id="sch-subject"></select>
+
+      <label>마감일</label>
+      <input type="date" id="sch-date">
+
+      <label>교시</label>
+      <select id="sch-period">
+        <option value="1">1교시</option><option value="2">2교시</option>
+        <option value="3">3교시</option><option value="4">4교시</option>
+        <option value="5">5교시</option><option value="6">6교시</option><option value="7">7교시</option>
+      </select>
+
+      <label>세부 설명</label>
+      <textarea id="sch-desc" placeholder="수행평가 내용 및 준비물"></textarea>
+
+      <button class="btn" onclick="saveSchedule()">실시간 공유 등록</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-schedule')">취소</button>
+    </div>
+  </div>
+
+  <!-- 오류 신고 모달 -->
+  <div id="modal-report" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:200; padding:20px;">
+    <div class="card" style="max-height:90vh; overflow-y:auto; margin-top:40px;">
+      <h3>🚨 일정 오류 신고</h3>
+      <p id="report-target-info" style="font-size:0.85rem; color:var(--subtext); margin:8px 0;"></p>
+      
+      <label>오류 내용 및 수정요청 사항</label>
+      <textarea id="report-content" placeholder="예: 3교시가 아니라 4교시입니다 / 수행평가 마감일이 잘못되었습니다." style="height:100px;"></textarea>
+
+      <button class="btn btn-warning" onclick="submitReport()">관리자에게 신고 제출</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-report')">취소</button>
+    </div>
+  </div>
+
+  <script>
+    const blocks = ['J', 'I', 'F', 'H', 'G'];
+    const days = ['월', '화', '수', '목', '금'];
+
+    let adminPassword = "4170";
+    let signupCode = "1234";
+    let classList = ['1반', '2반', '3반', '4반', '5반', '6반', '7반', '8반', '9반', '10반'];
+
+    let subjectList = {
+      Common: ['미적분1A', '미적분1B', '영어2', '화법과 언어', '스포츠생활2', '음악'],
+      J: ['생명과학1', '세계사'], I: ['화학1', '정치와법'], F: ['물리학1', '사회문화'], H: ['지구과학1', '한문'], G: ['지리', '미술']
+    };
+
+    let allTimetables = {};
+    let adminEditingClass = '1반';
+
+    let user = JSON.parse(localStorage.getItem('user')) || null;
+    let schedulesObj = {};
+    let studentsObj = {};
+    let reportsObj = {};
+    let currentFilter = 'all';
+    let isAdmin = false;
+    let selectedReportScheduleKey = null;
+
+    window.onload = function() {
+      listenRealtimeData();
+      if (user) {
+        showApp();
+      } else {
+        renderBlockSelects();
+      }
+    };
+
+    function toggleAuthTab(tab) {
+      document.getElementById('btn-tab-signup').classList.toggle('active', tab === 'signup');
+      document.getElementById('btn-tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('form-signup').style.display = tab === 'signup' ? 'block' : 'none';
+      document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+    }
+
+    function renderClassOptions() {
+      const signupSelect = document.getElementById('init-class');
+      const adminSelect = document.getElementById('admin-class-select');
+      const schTargetSelect = document.getElementById('sch-target-class');
+
+      let optionsHtml = classList.map(c => `<option value="${c}">${c}</option>`).join('');
+      
+      if(signupSelect) signupSelect.innerHTML = optionsHtml;
+      if(adminSelect) adminSelect.innerHTML = optionsHtml;
+      if(schTargetSelect) {
+        schTargetSelect.innerHTML = `<option value="all">전체 반 대상</option>` + optionsHtml;
+      }
+      renderClassManagementList();
+    }
+
+    function renderClassManagementList() {
+      const container = document.getElementById('class-manage-list');
+      if (!container) return;
+      if (classList.length === 0) {
+        container.innerHTML = '<span style="font-size:0.8rem; color:var(--subtext);">등록된 반이 없습니다.</span>';
+        return;
+      }
+      container.innerHTML = classList.map((c, idx) => `
+        <span class="badge" style="margin-bottom:6px; display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:white; border:1px solid var(--border);">
+          ${c}
+          <b onclick="deleteClass(${idx})" style="cursor:pointer; color:var(--danger); font-size:0.9rem; margin-left:2px;">×</b>
+        </span>
+      `).join(' ');
+    }
+
+    function deleteClass(index) {
+      const targetClass = classList[index];
+      if (confirm(`'${targetClass}'을(를) 정말 삭제하시겠습니까?`)) {
+        classList.splice(index, 1);
+        window.dbSet(window.dbRef(window.db, 'config/classList'), classList);
+        alert(`'${targetClass}'이 삭제되었습니다.`);
+      }
+    }
+
+    function renderBlockSelects() {
+      const container = document.getElementById('block-selects');
+      if(!container) return;
+      container.innerHTML = '';
+      blocks.forEach(b => {
+        let opts = (subjectList[b] || []).map(s => `<option value="${s}">${s}</option>`).join('');
+        container.innerHTML += `<label>${b} 분반 과목</label><select id="user-block-${b}">${opts}</select>`;
+      });
+    }
+
+    function saveProfile() {
+      const code = document.getElementById('init-code').value.trim();
+      const userClass = document.getElementById('init-class').value;
+      const studentId = document.getElementById('init-id').value.trim();
+      const name = document.getElementById('init-name').value.trim();
+      const password = document.getElementById('init-password').value.trim();
+      const agree = document.getElementById('init-agree').checked;
+
+      if(code !== signupCode) { alert(`가입 보안 코드가 일치하지 않습니다.`); return; }
+      if(!studentId || !name || !password) { alert("학번, 이름 및 비밀번호를 모두 입력해주세요."); return; }
+      if(!agree) { alert("약관에 동의하셔야 이용이 가능합니다."); return; }
+
+      let userBlocks = {};
+      blocks.forEach(b => {
+        const el = document.getElementById(`user-block-${b}`);
+        userBlocks[b] = el ? el.value : '';
+      });
+
+      user = { studentId, name, password, classNum: userClass, blocks: userBlocks, warningCount: 0 };
+      
+      window.dbSet(window.dbRef(window.db, `students/${studentId}`), user);
+      localStorage.setItem('user', JSON.stringify(user));
+      showApp();
+    }
+
+    function loginUser() {
+      const studentId = document.getElementById('login-id').value.trim();
+      const name = document.getElementById('login-name').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+
+      if(!studentId || !name || !password) { alert("학번, 이름, 비밀번호를 모두 입력해주세요."); return; }
+
+      let matched = studentsObj[studentId];
+      if (matched && matched.name === name && matched.password === password) {
+        user = matched;
+        localStorage.setItem('user', JSON.stringify(user));
+        showApp();
+      } else {
+        alert("일치하는 회원 정보가 없거나 비밀번호가 틀립니다.");
+      }
+    }
+
+    function showApp() {
+      document.getElementById('page-onboarding').classList.remove('active');
+      document.getElementById('page-calendar').classList.add('active');
+      document.getElementById('bottom-nav').style.display = 'flex';
+      document.getElementById('user-badge').innerText = `${user.classNum} ${user.studentId} ${user.name}`;
+      
+      document.getElementById('profile-display-info').innerHTML = 
+        `<strong>소속: ${user.classNum} | ${user.studentId} ${user.name}</strong><br>` + 
+        blocks.map(b => `${b}분반: ${user.blocks[b] || '미선택'}`).join(' | ');
+
+      renderTimetable();
+      renderSchedules();
+    }
+
+    function listenRealtimeData() {
+      // 1. 설정 동기화
+      window.dbOnValue(window.dbRef(window.db, 'config'), (snapshot) => {
+        if(snapshot.exists()){
+          let cfg = snapshot.val();
+          if(cfg.adminPassword) adminPassword = cfg.adminPassword;
+          if(cfg.signupCode) signupCode = cfg.signupCode;
+          if(cfg.classList) classList = cfg.classList;
+        }
+        renderClassOptions();
+      });
+
+      // 2. 과목 리스트 동기화
+      window.dbOnValue(window.dbRef(window.db, 'subjectList'), (snapshot) => {
+        if(snapshot.exists()) subjectList = snapshot.val();
+        renderBlockSelects();
+        updateFormSubjects();
+        renderSubjectManagement();
+      });
+
+      // 3. 반별 시간표 동기화
+      window.dbOnValue(window.dbRef(window.db, 'timetables'), (snapshot) => {
+        allTimetables = snapshot.exists() ? snapshot.val() : {};
+        renderTimetable();
+      });
+
+      // 4. 일정 동기화
+      window.dbOnValue(window.dbRef(window.db, 'schedules'), (snapshot) => {
+        schedulesObj = snapshot.val() || {};
+        renderSchedules();
+      });
+
+      // 5. 학생 명단 동기화
+      window.dbOnValue(window.dbRef(window.db, 'students'), (snapshot) => {
+        studentsObj = snapshot.val() || {};
+        if(user && !studentsObj[user.studentId]){
+          alert("계정이 삭제되었거나 강퇴되었습니다.");
+          logoutApp();
+          return;
+        }
+        renderStudentList();
+      });
+
+      // 6. 오류 신고 목록 동기화
+      window.dbOnValue(window.dbRef(window.db, 'reports'), (snapshot) => {
+        reportsObj = snapshot.val() || {};
+        renderReportList();
+      });
+    }
+
+    function switchPage(pageId, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(`page-${pageId}`).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function setFilter(type) {
+      currentFilter = type;
+      document.getElementById('btn-filter-all').classList.toggle('active', type === 'all');
+      document.getElementById('btn-filter-my').classList.toggle('active', type === 'my');
+      renderSchedules();
+    }
+
+    function renderSchedules() {
+      const container = document.getElementById('schedule-list');
+      if(!container) return;
+      container.innerHTML = '';
+      let keys = Object.keys(schedulesObj);
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      let validKeys = keys.filter(key => {
+        let s = schedulesObj[key];
+        if (s.date < todayStr) return false;
+
+        if (s.type === 'Common') {
+          let isMyClass = (!s.targetClass || s.targetClass === 'all' || s.targetClass === user.classNum);
+          if (!isMyClass) return false;
+          if (currentFilter === 'all') return true;
+          return true;
+        }
+
+        if (currentFilter === 'all') return true;
+        return user && user.blocks && user.blocks[s.block] === s.subject;
+      });
+
+      validKeys.sort((a, b) => {
+        let dateA = schedulesObj[a].date;
+        let dateB = schedulesObj[b].date;
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return (parseInt(schedulesObj[a].period) || 0) - (parseInt(schedulesObj[b].period) || 0);
+      });
+
+      if (validKeys.length === 0) {
+        container.innerHTML = '<p style="color:var(--subtext); font-size:0.85rem; padding:12px 0;">예정된 일정이 없습니다.</p>';
+        return;
+      }
+
+      validKeys.forEach(key => {
+        let s = schedulesObj[key];
+        let targetText = (s.type === 'Common' && s.targetClass && s.targetClass !== 'all') ? ` [${s.targetClass}]` : '';
+
+        container.innerHTML += `
+          <div class="item-row">
+            <div style="flex:1; padding-right:8px;">
+              <div>
+                <span class="badge ${s.type === 'Common' ? 'badge-common' : ''}">${s.type === 'Common' ? '공통' + targetText : s.block + '분반'}</span>
+                <strong>${s.subject}</strong> (${s.period}교시)
+              </div>
+              <p style="font-size:0.85rem; margin-top:4px;">${s.desc}</p>
+              <span style="font-size:0.75rem; color:var(--subtext);">마감: ${s.date} | 작성: ${s.author}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+              <button class="btn btn-warning btn-sm" style="white-space:nowrap;" onclick="openReportModal('${key}')">🚨 오류 신고</button>
+              ${isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteSchedule('${key}')">삭제</button>` : ''}
+            </div>
+          </div>`;
+      });
+    }
+
+    function openReportModal(key) {
+      selectedReportScheduleKey = key;
+      let s = schedulesObj[key];
+      if(!s) return;
+      document.getElementById('report-target-info').innerHTML = 
+        `신고 대상: <strong>[${s.subject}]</strong> (마감: ${s.date} ${s.period}교시)`;
+      document.getElementById('report-content').value = '';
+      openModal('modal-report');
+    }
+
+    function submitReport() {
+      const content = document.getElementById('report-content').value.trim();
+      if(!content) { alert('오류 내용 및 요청사항을 입력해주세요.'); return; }
+
+      let s = schedulesObj[selectedReportScheduleKey];
+      const newReportRef = window.dbPush(window.dbRef(window.db, 'reports'));
+      
+      window.dbSet(newReportRef, {
+        scheduleKey: selectedReportScheduleKey,
+        subject: s ? s.subject : '삭제된 일정',
+        date: s ? s.date : '-',
+        reporter: `${user.classNum} ${user.studentId} ${user.name}`,
+        content: content,
+        createdAt: new Date().toLocaleString('ko-KR')
+      });
+
+      alert('오류 신고가 제출되었습니다. 관리자가 확인 후 수정 조치합니다.');
+      closeModal('modal-report');
+    }
+
+    function renderReportList() {
+      const container = document.getElementById('report-list');
+      if(!container) return;
+      container.innerHTML = '';
+      let keys = Object.keys(reportsObj);
+
+      if(keys.length === 0) {
+        container.innerHTML = '<p style="font-size:0.8rem; color:var(--subtext);">접수된 오류 신고가 없습니다.</p>';
+        return;
+      }
+
+      keys.forEach(key => {
+        let r = reportsObj[key];
+        container.innerHTML += `
+          <div class="item-row">
+            <div style="flex:1; padding-right:8px;">
+              <div>
+                <span class="badge" style="background:#fee2e2; color:#dc2626;">🚨 신고</span>
+                <strong>${r.subject}</strong> (${r.date})
+              </div>
+              <p style="font-size:0.85rem; color:var(--text); margin-top:4px; font-weight:bold;">"${r.content}"</p>
+              <span style="font-size:0.75rem; color:var(--subtext);">신고자: ${r.reporter} | ${r.createdAt}</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="deleteReport('${key}')">처리완료</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteReport(key) {
+      if(confirm('이 신고 항목을 처리완료 하고 삭제하시겠습니까?')) {
+        window.dbRemove(window.dbRef(window.db, `reports/${key}`));
+      }
+    }
+
+    function renderTimetable() {
+      const display = document.getElementById('timetable-display');
+      const titleEl = document.getElementById('timetable-title');
+      if(!display) return;
+
+      let targetClass = (isAdmin) ? adminEditingClass : (user ? user.classNum : '1반');
+      if(titleEl) titleEl.innerText = `⏰ ${targetClass} 맞춤 시간표`;
+
+      let currentTT = allTimetables[targetClass] || Array(7).fill(null).map(() => ['미적분1A', 'J', 'I', 'F', 'H']);
+
+      display.innerHTML = '<div class="tt-header">교시</div>' + days.map(d => `<div class="tt-header">${d}</div>`).join('');
+
+      for(let p = 0; p < 7; p++) {
+        display.innerHTML += `<div class="tt-cell tt-period">${p+1}</div>`;
+        for(let d = 0; d < 5; d++) {
+          let rawVal = (currentTT[p] && currentTT[p][d]) ? currentTT[p][d] : '-';
+          let displayVal = (user && user.blocks && blocks.includes(rawVal)) ? (user.blocks[rawVal] || rawVal) : rawVal;
+          
+          let editableClass = isAdmin ? 'editable' : '';
+          let clickAttr = isAdmin ? `onclick="editCell('${targetClass}', ${p}, ${d}, '${rawVal}')"` : '';
+
+          display.innerHTML += `<div class="tt-cell ${editableClass}" ${clickAttr}>${displayVal}</div>`;
+        }
+      }
+    }
+
+    function editCell(className, p, d, currentVal) {
+      if(!isAdmin) return;
+      let newVal = prompt(`${className} ${days[d]}요일 ${p+1}교시 시간표 수정\n(과목명 또는 J, I, F, H, G 입력):`, currentVal);
+      if(newVal !== null && newVal.trim() !== "") {
+        if(!allTimetables[className]) {
+          allTimetables[className] = Array(7).fill(null).map(() => Array(5).fill('-'));
+        }
+        allTimetables[className][p][d] = newVal.trim();
+        window.dbSet(window.dbRef(window.db, `timetables/${className}`), allTimetables[className]);
+      }
+    }
+
+    function switchAdminClassTimetable() {
+      const sel = document.getElementById('admin-class-select');
+      if(sel) {
+        adminEditingClass = sel.value;
+        renderTimetable();
+      }
+    }
+
+    function addClass() {
+      const nameInput = document.getElementById('new-class-name');
+      const name = nameInput.value.trim();
+      if(!name) return alert("반 이름을 입력하세요 (예: 11반)");
+      if(classList.includes(name)) return alert("이미 존재하는 반입니다.");
+
+      classList.push(name);
+      window.dbSet(window.dbRef(window.db, 'config/classList'), classList);
+      alert(`'${name}'이 추가되었습니다.`);
+      nameInput.value = '';
+    }
+
+    function updateFormSubjects() {
+      const typeEl = document.getElementById('sch-type');
+      if(!typeEl) return;
+      const type = typeEl.value;
+      const blockField = document.getElementById('block-field');
+      const commonClassField = document.getElementById('common-class-field');
+      const subjectSelect = document.getElementById('sch-subject');
+
+      if (type === 'Common') {
+        blockField.style.display = 'none';
+        commonClassField.style.display = 'block';
+        subjectSelect.innerHTML = (subjectList.Common || []).map(s => `<option value="${s}">${s}</option>`).join('');
+      } else {
+        blockField.style.display = 'block';
+        commonClassField.style.display = 'none';
+        const block = document.getElementById('sch-block').value;
+        subjectSelect.innerHTML = (subjectList[block] || []).map(s => `<option value="${s}">${s}</option>`).join('');
+      }
+    }
+
+    function saveSchedule() {
+      const type = document.getElementById('sch-type').value;
+      const block = document.getElementById('sch-block').value;
+      const targetClass = document.getElementById('sch-target-class').value;
+      const subject = document.getElementById('sch-subject').value;
+      const date = document.getElementById('sch-date').value;
+      const period = document.getElementById('sch-period').value;
+      const desc = document.getElementById('sch-desc').value;
+
+      if (!date || !desc) { alert("마감일과 내용을 입력해 주세요."); return; }
+
+      const newRef = window.dbPush(window.dbRef(window.db, 'schedules'));
+      window.dbSet(newRef, {
+        type, block, targetClass: type === 'Common' ? targetClass : null, subject, date, period, desc, author: `${user.classNum} ${user.studentId} ${user.name}`
+      });
+
+      closeModal('modal-schedule');
+    }
+
+    function deleteSchedule(key) { window.dbRemove(window.dbRef(window.db, `schedules/${key}`)); }
+
+    function renderStudentList() {
+      const container = document.getElementById('student-list');
+      if(!container) return;
+      container.innerHTML = '';
+      let ids = Object.keys(studentsObj);
+
+      if(ids.length === 0) {
+        container.innerHTML = '<p style="font-size:0.8rem; color:var(--subtext);">가입된 학생이 없습니다.</p>';
+        return;
+      }
+
+      ids.forEach(id => {
+        let st = studentsObj[id];
+        let warnCount = st.warningCount || 0;
+        container.innerHTML += `
+          <div class="item-row">
+            <div>
+              <strong>[${st.classNum || '반미지정'}] ${st.studentId} ${st.name}</strong>
+              <span style="font-size:0.75rem; color:var(--danger); font-weight:bold; margin-left:6px;">⚠️ 경고 ${warnCount}회</span>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-warning btn-sm" onclick="giveWarning('${st.studentId}', ${warnCount})">경고</button>
+              <button class="btn btn-danger btn-sm" onclick="kickStudent('${st.studentId}')">강퇴</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function giveWarning(stId, currentWarn) {
+      window.dbSet(window.dbRef(window.db, `students/${stId}/warningCount`), currentWarn + 1);
+      alert(`${stId} 학생에게 경고를 1회 부여했습니다.`);
+    }
+
+    function kickStudent(stId) {
+      if(confirm(`${stId} 학생을 강퇴 및 삭제하시겠습니까?`)) {
+        window.dbRemove(window.dbRef(window.db, `students/${stId}`));
+        alert('강퇴 처리가 완료되었습니다.');
+      }
+    }
+
+    function toggleAdmin(el) {
+      if (el.checked) {
+        const inputPass = prompt("관리자 비밀번호를 입력하세요:");
+        if (inputPass === adminPassword) {
+          isAdmin = true;
+          document.getElementById('admin-controls').style.display = 'block';
+          document.getElementById('admin-tt-notice').style.display = 'inline';
+          alert("관리자 권한이 활성화되었습니다.\n신고 내역 확인, 반별 시간표 편집, 과목 및 회원 관리가 가능합니다.");
+        } else {
+          alert("비밀번호가 일치하지 않습니다.");
+          el.checked = false;
+          isAdmin = false;
+          document.getElementById('admin-controls').style.display = 'none';
+          document.getElementById('admin-tt-notice').style.display = 'none';
+        }
+      } else {
+        isAdmin = false;
+        document.getElementById('admin-controls').style.display = 'none';
+        document.getElementById('admin-tt-notice').style.display = 'none';
+      }
+      renderTimetable();
+      renderSchedules();
+    }
+
+    function changeSignupCode() {
+      const code = document.getElementById('new-signup-code').value.trim();
+      if(!code) return alert("새 가입 코드를 입력하세요.");
+      window.dbSet(window.dbRef(window.db, 'config/signupCode'), code);
+      alert("가입 보안 코드가 실시간 변경되었습니다!");
+      document.getElementById('new-signup-code').value = '';
+    }
+
+    function changeAdminPassword() {
+      const pass = document.getElementById('new-admin-pass').value.trim();
+      if(!pass) return alert("새 관리자 비밀번호를 입력하세요.");
+      window.dbSet(window.dbRef(window.db, 'config/adminPassword'), pass);
+      alert("관리자 비밀번호가 실시간 변경되었습니다!");
+      document.getElementById('new-admin-pass').value = '';
+    }
+
+    function addNewSubject() {
+      const blk = document.getElementById('add-subject-block').value;
+      const name = document.getElementById('add-subject-name').value.trim();
+
+      if(!name) return alert("과목명을 입력하세요.");
+      if(!subjectList[blk]) subjectList[blk] = [];
+      
+      subjectList[blk].push(name);
+      window.dbSet(window.dbRef(window.db, 'subjectList'), subjectList);
+      alert(`${blk} 분반에 '${name}' 과목이 추가되었습니다!`);
+      document.getElementById('add-subject-name').value = '';
+    }
+
+    function renderSubjectManagement() {
+      const container = document.getElementById('subject-manage-list');
+      if (!container) return;
+      container.innerHTML = '';
+
+      Object.keys(subjectList).forEach(block => {
+        let list = subjectList[block] || [];
+        if (list.length === 0) return;
+
+        let items = list.map((sub, idx) => `
+          <span class="badge" style="margin-bottom:6px; display:inline-flex; align-items:center; gap:4px; padding:4px 8px; background:white; border:1px solid var(--border);">
+            ${sub}
+            <b onclick="deleteSubject('${block}', ${idx})" style="cursor:pointer; color:var(--danger); font-size:0.9rem; margin-left:2px;">×</b>
+          </span>
+        `).join(' ');
+
+        container.innerHTML += `
+          <div style="margin-bottom:8px;">
+            <span style="font-size:0.78rem; font-weight:bold; color:var(--primary); display:block; margin-bottom:2px;">
+              ${block === 'Common' ? '공통 과목' : block + ' 분반'}
+            </span>
+            <div>${items}</div>
+          </div>
+        `;
+      });
+    }
+
+    function deleteSubject(block, index) {
+      const targetSubject = subjectList[block][index];
+      if (confirm(`'${targetSubject}' 과목을 목록에서 삭제하시겠습니까?`)) {
+        subjectList[block].splice(index, 1);
+        window.dbSet(window.dbRef(window.db, 'subjectList'), subjectList);
+        alert(`'${targetSubject}' 과목이 삭제되었습니다.`);
+      }
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'block'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function logoutApp() { localStorage.clear(); location.reload(); }
+  </script>
+<!-- 1. FCM 푸시 알림 라이브러리 불러오기 -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js"></script>
+
+<!-- 2. 알림 동의 및 토큰 저장 기능 -->
+<script>
+function requestNotificationPermission(studentId) {
+  if (!('Notification' in window)) return;
+
+  Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+      const messaging = firebase.messaging();
+      
+      // ⚠️ 아까 복사한 긴 VAPID 키를 아랫줄 '여기에_복사한_키_붙여넣기' 자리에 넣으세요!
+      messaging.getToken({ vapidKey: 'BCl_IPaAk2btW4YIuBcrKIIaiuh6AsrPfygS01HjPGge_DpqQ7yorUF-6XuvjjFmFtLfYIUm_JziECJx7qfUJe4' }).then((currentToken) => {
+        if (currentToken) {
+          firebase.database().ref('students/' + studentId + '/fcmToken').set(currentToken);
+          console.log('알림 동의 및 토큰 저장 완료!');
+        }
+      });
+    }
+  });
+}
+</script>
+</body>
+</html>
