@@ -581,19 +581,20 @@
       const todayStr = new Date().toISOString().split('T')[0];
 
       let validKeys = keys.filter(key => {
-        let s = schedulesObj[key];
-        if (s.date < todayStr) return false;
+  let s = schedulesObj[key];
+  if (!s) return false;
+  if (s.date < todayStr) return false;
 
-        if (s.type === 'Common') {
-          let isMyClass = (!s.targetClass || s.targetClass === 'all' || s.targetClass === user.classNum);
-          if (!isMyClass) return false;
-          if (currentFilter === 'all') return true;
-          return true;
-        }
+  if (s.type === 'Common') {
+    let isMyClass = (!s.targetClass || s.targetClass === 'all' || s.targetClass === user?.classNum);
+    if (!isMyClass) return false;
+    if (currentFilter === 'all') return true;
+    return true;
+  }
 
-        if (currentFilter === 'all') return true;
-        return user && user.blocks && user.blocks[s.block] === s.subject;
-      });
+  if (currentFilter === 'all') return true;
+  return user && user.blocks && user.blocks[s.block] === s.subject;
+});
 
       validKeys.sort((a, b) => {
         let dateA = schedulesObj[a].date;
