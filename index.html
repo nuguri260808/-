@@ -97,32 +97,68 @@
   </style>
 
   <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+<!-- Firebase SDK 및 알림 스크립트 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
 
-    // ⚠️ Firebase 정보를 여기에 입력하세요.
-    const firebaseConfig = {
-      apiKey: "AIzaSyBNSF0jYs3TeiwgPKCWZ0irFfPtWD8fScs",
-      authDomain: "class209.firebaseapp.com",
-      databaseURL: "https://class209-default-rtdb.firebaseio.com",
-      projectId: "class209",
-      storageBucket: "class209.firebasestorage.app",
-      messagingSenderId: "584432141678",
-      appId: "1:584432141678:web:bda51797fc8da12df4ed7f",
-      measurementId: "G-TMNCF0TM8T"
+  const firebaseConfig = {
+    apiKey: "AIzaSyBNSF0jYs3TeiwgPKCWZ0irFfPtWD8fScs",
+    authDomain: "class209.firebaseapp.com",
+    databaseURL: "https://class209-default-rtdb.firebaseio.com",
+    projectId: "class209",
+    storageBucket: "class209.firebasestorage.app",
+    messagingSenderId: "584432141678",
+    appId: "1:584432141678:web:bda51797fc8da12df4ed7f",
+    measurementId: "G-TMNCF0TM8T"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const messaging = getMessaging(app);
+
+  window.db = db;
+  window.dbRef = ref;
+  window.dbSet = set;
+  window.dbPush = push;
+  window.dbOnValue = onValue;
+  window.dbRemove = remove;
+
+  // 🔔 알림 버튼 클릭 시 실행될 전역 함수
+  window.requestAndSaveToken = async function() {
+    if (!('Notification' in window)) {
+      alert('이 브라우저는 푸시 알림을 지원하지 않습니다.');
+      return;
     }
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    try {
+      // 1. 브라우저 알림 권한 요청 (팝업 창)
+      const permission = await Notification.requestPermission();
 
-    window.db = db;
-    window.dbRef = ref;
-    window.dbSet = set;
-    window.dbPush = push;
-    window.dbOnValue = onValue;
-    window.dbRemove = remove;
-  </script>
+      if (permission === 'granted') {
+        // 2. FCM 토큰 가져오기
+        const currentToken = await getToken(messaging, {
+          vapidKey: 'BCl_IPaAk2btW4YIuBcrKIIaiuh6AsrPfygS01HjPGge_DpqQ7yorUF-6XuvjjFmFtLfYIUm_JziECJx7qfUJe4'
+        });
+
+        if (currentToken) {
+          if (window.user && window.user.studentId) {
+            await set(ref(db, `students/${window.user.studentId}/fcmToken`), currentToken);
+            alert('🔔 알림 수신 동의가 완료되었습니다!');
+          } else {
+            alert('로그인 또는 회원가입 후 알림 신청을 눌러주세요.');
+          }
+        }
+      } else if (permission === 'denied') {
+        alert('알림 권한이 "차단"되어 있습니다.\n브라우저 주소창 왼쪽의 🔒(자물쇠) 아이콘을 눌러 알림을 [허용]으로 변경해 주세요.');
+      }
+    } catch (err) {
+      console.error('알림 설정 오류:', err);
+      alert('알림 설정 중 오류가 발생했습니다. (F12 콘솔 확인)');
+    }
+  };
+</script>
 </head>
 <body>
 
