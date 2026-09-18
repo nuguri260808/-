@@ -1,0 +1,19 @@
+name: Daily Push Notification (07:00 KST)
+
+on:
+  schedule:
+    - cron: '0 22 * * *' # 한국 시간 아침 7시 (UTC 22:00)
+  workflow_dispatch: # 필요할 때 직접 실행할 수 있는 버튼 활성화
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm install firebase-admin
+      - run: node auto-push.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
