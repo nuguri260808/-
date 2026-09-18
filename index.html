@@ -951,6 +951,34 @@ function requestNotificationPermission(studentId) {
     }
   });
 }
+  <!-- 화면에 보일 알림 버튼 -->
+<button id="push-btn" style="padding: 10px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 10px 0;">
+  🔔 알림 수신 동의하기
+</button>
+
+<!-- 버튼 동작 자바스크립트 -->
+<script>
+  const pushBtn = document.getElementById('push-btn');
+
+  if (pushBtn) {
+    pushBtn.addEventListener('click', async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          alert('알림 동의가 완료되었습니다!');
+          if (typeof getAndSaveToken === 'function') {
+            getAndSaveToken();
+          }
+        } else if (permission === 'denied') {
+          alert('알림 권한이 차단되었습니다. 브라우저 설정에서 허용으로 변경해 주세요.');
+        }
+      } catch (error) {
+        console.error('알림 권한 요청 오류:', error);
+      }
+    });
+  }
+</script>
 </script>
 </body>
 </html>
